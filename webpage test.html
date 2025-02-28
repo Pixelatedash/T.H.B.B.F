@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Browser</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f2e2a9; /* Dull yellow */
+            color: black;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Tab Bar */
+        #tabBar {
+            display: flex;
+            align-items: center;
+            background: #333;
+            padding: 5px;
+        }
+        .tab {
+            background: #555;
+            color: white;
+            padding: 5px 10px;
+            margin-right: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+        .tab.active { background: #007bff; }
+        .tab button {
+            margin-left: 5px;
+            background: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* Buttons */
+        #controls { padding: 10px; display: flex; gap: 5px; }
+        button { padding: 5px 10px; cursor: pointer; }
+
+        /* Settings Menu */
+        #settingsMenu {
+            display: none;
+            position: absolute;
+            top: 40px; right: 10px;
+            background: white;
+            border: 1px solid #000;
+            padding: 10px;
+        }
+        #bookmarksList { margin-top: 10px; }
+
+        /* Content Area */
+        #tabContent { height: 90vh; display: flex; flex-direction: column; }
+        iframe { flex: 1; width: 100%; border: none; }
+
+        /* Search Bar */
+        .searchBar {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        /* Start Page */
+        .startPage {
+            text-align: center;
+            padding: 20px;
+        }
+        #logo {
+            width: 50px; /* Adjust the size of the logo */
+            height: 50px;
+            margin-bottom: 20px;
+        }
+
+        /* Footer */
+        .footer {
+            font-size: 12px;
+            color: #555;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Tab Bar -->
+    <div id="tabBar">
+        <button onclick="newTab()">➕ New Tab</button>
+        <button onclick="toggleSettings()">⚙️ Settings</button>
+        <button onclick="bookmarkPage()">⭐ Bookmark</button>
+    </div>
+
+    <!-- Settings Menu -->
+    <div id="settingsMenu">
+        <button onclick="toggleFullscreen()">Toggle Fullscreen</button>
+        <br>
+        <input type="text" id="wallpaperURL" placeholder="Enter image URL for wallpaper">
+        <button onclick="changeWallpaper()">Set Wallpaper</button>
+        <br>
+        <button onclick="resetBackground()">Reset Background</button>
+        <br>
+        <label for="textColor">Text Color: </label>
+        <input type="color" id="textColor" value="#000000" onchange="changeTextColor()">
+        <br>
+        <button onclick="toggleDarkMode()">Toggle Dark/Light Mode</button>
+        <h3>Bookmarks</h3>
+        <div id="bookmarksList"></div>
+    </div>
+
+    <!-- Content Area -->
+    <div id="tabContent"></div>
+
+    <script>
+        let tabs = [];
+        let activeTab = null;
+        let isDarkMode = false;
+
+        function createStartPage(tabId) {
+            let container = document.createElement("div");
+            container.className = "startPage";
+            container.innerHTML = `
+                <div style="text-align:center; padding: 20px;">
+                    <img id="logo" src="logo.png" alt="Logo"> <!-- Replace with your logo image path -->
+                    <h1>Welcome to Mini Browser</h1>
+                    <input type="text" id="searchBar${tabId}" class="searchBar" placeholder="Search or Enter URL" onkeypress="search(event, ${tabId})">
+                    <button onclick="search(null, ${tabId})">Search</button>
+                    <p class="footer">T.H.B.B version 8 by pixelatedca1</p>
+                </div>
+            `;
+            return container;
+        }
+
+        function newTab() {
+            let tabId = tabs.length;
+
+            let tab = document.createElement("div");
+            tab.className = "tab";
+            tab.innerHTML = `Tab ${tabId + 1} <button onclick="closeTab(${tabId}, event)">X</button>`;
+            tab.onclick = () => switchTab(tabId);
+            document.getElementById("tabBar").appendChild(tab);
+
+            let startPage = createStartPage(tabId);
+            let iframe = document.createElement("iframe");
+            iframe.src = "about:blank";
+            document.getElementById("tabContent").appendChild(startPage);
+            document.getElementById("tabContent").appendChild(iframe);
+
+            tabs.push({ tab, content: startPage, iframe });
+            switchTab(tabId);
+        }
+
+        function switchTab(id) {
+            tabs.forEach((t, index) => {
+                t.content.style.display = index === id ? "block" : "none";
+                t.tab.classList.toggle("active", index === id);
+                t.iframe.style.display = index === id ? "block" : "none";
+            });
+            activeTab = id;
+        }
+
+        function closeTab(id, event) {
+            event.stopPropagation();
+            if (tabs[id]) {
+                tabs[id].tab.remove();
+                tabs[id].content.remove();
+                tabs[id].iframe.remove();
+                tabs.splice(id, 1);
+                if (tabs.length > 0) {
+                    switchTab(Math.max(0, id - 1));
+                } else {
+                    newTab();
+                }
+            }
+        }
+
+        function search(event, tabId) {
+            if (event && event.key !== "Enter") return;
+            let query = document.getElementById(`searchBar${tabId}`).value;
+            if (query) openURL(query.startsWith('http') ? query : 'https://' + query, tabId);
+        }
+
+        function openURL(url, tabId) {
+            let iframe = tabs[tabId].iframe;
+            iframe.src = url;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function toggleSettings() {
+            let menu = document.getElementById("settingsMenu");
+            menu.style.display = menu.style.display === "block" ? "none" : "block";
+            loadBookmarks();
+        }
+
+        function changeWallpaper() {
+            let url = document.getElementById("wallpaperURL").value;
+            if (url) {
+                document.body.style.backgroundImage = `url('${url}')`;
+            }
+        }
+
+        function resetBackground() {
+            document.body.style.backgroundColor = "#f2e2a9";  // Dull yellow
+            document.body.style.backgroundImage = '';  // Remove custom wallpaper
+        }
+
+        function changeTextColor() {
+            let color = document.getElementById("textColor").value;
+            document.body.style.color = color;
+        }
+
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.body.style.backgroundColor = "#333";
+                document.body.style.color = "#fff";
+            } else {
+                document.body.style.backgroundColor = "#f2e2a9";  // Dull yellow
+                document.body.style.color = "#000";
+            }
+        }
+
+        function bookmarkPage() {
+            if (activeTab !== null) {
+                let url = tabs[activeTab].iframe.src;
+                let bookmarks = JSON.parse(localStorage.getItem("bookmarks")) || [];
+                if (!bookmarks.includes(url)) {
+                    bookmarks.push(url);
+                    localStorage.setItem("bookmarks", JSON.stringify(bookmarks));
+                    loadBookmarks();
+                }
+            }
+        }
+
+        function loadBookmarks() {
+            let bookmarksList = document.getElementById("bookmarksList");
+            bookmarksList.innerHTML = "";
+            let bookmarks = JSON.parse(localStorage.getItem("bookmarks")) || [];
+            bookmarks.forEach(url => {
+                let item = document.createElement("div");
+                item.innerHTML = `<a href="#" onclick="openURL('${url}', activeTab)">${url}</a>`;
+                bookmarksList.appendChild(item);
+            });
+        }
+
+        newTab();
+    </script>
+
+</body>
+</html>
